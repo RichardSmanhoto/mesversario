@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#ffd6e4">
+<title>Nossos 5 meses 💗</title>
+
+<style>
+/* ============================================================
+   ESTILOS GERAIS
+   ============================================================ */
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none; -webkit-user-select: none;
+  background: #0f0a12;
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: #4a2b39;
+}
+canvas#game { display: block; position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* --- Telas (Flexbox para centralizar tudo) --- */
+.screen {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 24px 18px calc(24px + env(safe-area-inset-bottom));
+  z-index: 30;
+  transition: opacity .45s ease;
+}
+.screen.hidden { opacity: 0; pointer-events: none; visibility: hidden; }
+
+/* ============================================================
+   TELA 1 — INTRODUÇÃO
+   ============================================================ */
+#intro {
+  background:
+    radial-gradient(120% 80% at 50% 0%, #ffe6f0 0%, #ffd0e2 45%, #ffbcd6 100%);
+  text-align: center; gap: 10px;
+}
+#intro .badge {
+  font-size: 13px; letter-spacing: 3px; text-transform: uppercase;
+  color: #d4548a; font-weight: 700; opacity: .9;
+}
+#intro h1 {
+  font-size: clamp(22px, 7.2vw, 34px); line-height: 1.25;
+  color: #c2306c; text-shadow: 0 2px 0 #fff6fa, 0 8px 18px rgba(194,48,108,.18);
+  max-width: 18ch; margin: 4px 0 2px;
+}
+#intro p.sub { font-size: clamp(14px, 4.2vw, 17px); color: #8a5470; max-width: 26ch; line-height: 1.5; }
+#introSprite { image-rendering: pixelated; width: 96px; height: 144px; margin: 6px 0 2px; animation: bob 1.1s ease-in-out infinite; }
+@keyframes bob { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-8px) } }
+
+.btn {
+  margin-top: 14px;
+  padding: 16px 42px; font-size: 20px; font-weight: 700; font-family: inherit;
+  color: #fff; background: linear-gradient(180deg, #ff7fae 0%, #e8437f 100%);
+  border: none; border-radius: 999px; cursor: pointer;
+  box-shadow: 0 8px 0 #c22a63, 0 14px 26px rgba(194,42,99,.35);
+  transition: transform .08s ease, box-shadow .08s ease;
+}
+.btn:active { transform: translateY(5px); box-shadow: 0 3px 0 #c22a63, 0 8px 16px rgba(194,42,99,.3); }
+.hint { margin-top: 16px; font-size: 13px; color: #9a6480; }
+
+/* ============================================================
+   HUD (durante o jogo)
+   ============================================================ */
+#hud {
+  position: absolute; top: 0; left: 0; right: 0;
+  padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+  display: flex; align-items: center; gap: 12px;
+  z-index: 12; pointer-events: none;
+  transition: opacity .4s ease;
+}
+#hud.hidden { opacity: 0; }
+.hearts {
+  background: rgba(255,255,255,.82); border-radius: 999px;
+  padding: 5px 12px; font-weight: 700; color: #d63384; font-size: 15px;
+  box-shadow: 0 3px 10px rgba(0,0,0,.12); white-space: nowrap;
+}
+.track {
+  flex: 1; height: 12px; background: rgba(255,255,255,.75);
+  border-radius: 999px; position: relative; box-shadow: 0 3px 10px rgba(0,0,0,.12);
+}
+.track .fill {
+  position: absolute; inset: 2px auto 2px 2px; width: 0;
+  background: linear-gradient(90deg, #ffa8c8, #e8437f);
+  border-radius: 999px; transition: width .2s linear;
+}
+.track .goal { position: absolute; right: -4px; top: -8px; font-size: 17px; }
+
+/* ============================================================
+   TOAST — frases e versículos
+   ============================================================ */
+#toastWrap {
+  position: absolute; top: 16%; left: 0; right: 0;
+  display: flex; justify-content: center; padding: 0 16px;
+  z-index: 14; pointer-events: none;
+}
+.toast {
+  background: rgba(255,255,255,.94); color: #c2306c;
+  padding: 12px 20px; border-radius: 18px;
+  font-size: clamp(14px, 4vw, 17px); font-weight: 700; line-height: 1.4;
+  text-align: center; max-width: 92%;
+  box-shadow: 0 10px 26px rgba(194,48,108,.22);
+  border: 2px solid #ffd7e6;
+  opacity: 0; transform: translateY(-16px) scale(.9);
+  transition: opacity .28s ease, transform .28s cubic-bezier(.2,1.4,.4,1);
+}
+.toast.show { opacity: 1; transform: translateY(0) scale(1); }
+.toast.oops { color: #b26a2a; border-color: #ffe2bd; }
+
+/* ============================================================
+   FOTOS DO CASAL (elementos HTML sobrepostos ao Canvas)
+   ============================================================ */
+#photos { position: absolute; inset: 0; z-index: 8; pointer-events: none; overflow: hidden; }
+.photo-frame {
+  position: absolute; top: 22%;
+  width: min(46vw, 200px);
+  background: #fff; padding: 10px 10px 34px;
+  border-radius: 6px;
+  box-shadow: 0 14px 30px rgba(0,0,0,.28);
+  transform: translateX(120vw) rotate(6deg);
+  opacity: 0;
+}
+.photo-frame.left  { left: 6vw; }
+.photo-frame.right { right: 6vw; }
+.photo-frame .ph-img {
+  width: 100%; aspect-ratio: 3/4; object-fit: cover;
+  border-radius: 3px; background: #f4e7ee; display: block;
+}
+.photo-frame .ph-holder {
+  width: 100%; aspect-ratio: 3/4; border-radius: 3px;
+  background: repeating-linear-gradient(45deg, #ffeaf3 0 10px, #ffe0ec 10px 20px);
+  display: none; align-items: center; justify-content: center; text-align: center;
+  font-size: 12px; font-weight: 700; color: #c2306c; padding: 8px;
+}
+.photo-frame .cap {
+  position: absolute; bottom: 8px; left: 0; right: 0; text-align: center;
+  font-size: 13px; color: #b3648b; font-style: italic;
+}
+.photo-frame.fly { animation: flyBy 6.2s linear forwards; }
+@keyframes flyBy {
+  0%   { transform: translateX(120vw) rotate(8deg);   opacity: 0; }
+  14%  { transform: translateX(0) rotate(-3deg);      opacity: 1; }
+  70%  { transform: translateX(0) rotate(3deg);       opacity: 1; }
+  100% { transform: translateX(-130vw) rotate(-10deg); opacity: 0; }
+}
+
+/* ============================================================
+   TELA 3 — O CONVITE (carta animada)
+   ============================================================ */
+#end { background: rgba(40, 12, 26, .55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); perspective: 900px; }
+.letter {
+  position: relative;
+  background: linear-gradient(180deg, #fffdfa 0%, #fff5f8 100%);
+  border: 3px solid #ffd0e0;
+  border-radius: 18px;
+  padding: 20px 22px 24px;
+  width: min(92vw, 420px);
+  max-height: 86vh; overflow-y: auto;
+  box-shadow: 0 26px 60px rgba(0,0,0,.4);
+  transform-origin: top center;
+  animation: openLetter .9s cubic-bezier(.2,1.2,.3,1) forwards;
+}
+@keyframes openLetter {
+  0%   { opacity: 0; transform: translateY(40px) scaleY(.05) rotateX(-70deg); }
+  55%  { opacity: 1; transform: translateY(0)    scaleY(1.04) rotateX(6deg); }
+  100% { opacity: 1; transform: translateY(0)    scaleY(1)    rotateX(0); }
+}
+.letter .seal {
+  margin: 0 auto 10px;
+  width: 52px; height: 52px; border-radius: 50%;
+  background: linear-gradient(180deg, #ff7fae, #e8437f);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; box-shadow: 0 6px 14px rgba(194,42,99,.4);
+}
+.letter h2 {
+  font-size: clamp(19px, 5.6vw, 25px); color: #c2306c; text-align: center;
+  line-height: 1.3; margin-bottom: 6px;
+}
+.letter .lead { text-align: center; color: #7d5268; font-size: 16px; margin-bottom: 16px; }
+.letter .rows { display: grid; gap: 10px; margin: 4px 0 16px; }
+.letter .row {
+  display: flex; gap: 10px; align-items: flex-start;
+  background: #fff; border: 2px solid #ffe4ee; border-radius: 12px; padding: 10px 12px;
+}
+.letter .row .ico { font-size: 18px; line-height: 1.3; }
+.letter .row .txt { font-size: 14.5px; line-height: 1.45; color: #55384a; }
+.letter .row .txt b { color: #c2306c; display: block; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; }
+.letter .row a { color: #d63384; }
+.letter .footer {
+  text-align: center; font-size: 14px; color: #8a5470; font-style: italic;
+  border-top: 2px dashed #ffd9e7; padding-top: 14px; line-height: 1.5;
+}
+.letter .footer strong { color: #c2306c; font-style: normal; }
+.replay {
+  display: block; margin: 14px auto 0; background: none; border: none; font-family: inherit;
+  color: #b3648b; font-size: 13px; text-decoration: underline; cursor: pointer;
+}
+
+/* Botão de som */
+#sound {
+  position: absolute; z-index: 20; right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  width: 42px; height: 42px; border-radius: 50%; border: none;
+  background: rgba(255,255,255,.8); font-size: 18px; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15);
+}
+</style>
+</head>
+<body>
+
+<!-- ====================== CANVAS DO JOGO ====================== -->
+<canvas id="game"></canvas>
+
+<!-- ====================== HUD ====================== -->
+<div id="hud" class="hidden">
+  <div class="hearts">💗 <span id="heartCount">0</span></div>
+  <div class="track"><div class="fill" id="progressFill"></div><div class="goal">🥗</div></div>
+</div>
+
+<!-- ====================== TOAST (frases) ====================== -->
+<div id="toastWrap"><div id="toast" class="toast"></div></div>
+
+<!-- ====================== FOTOS DO CASAL ======================
+     Os quadros são criados automaticamente pelo JS a partir da
+     constante PHOTOS (procure por "CONFIGURAÇÃO DAS FOTOS" abaixo).
+     Se a imagem não for encontrada, aparece o placeholder
+     [INSERIR FOTO AQUI] no lugar.
+============================================================ -->
+<div id="photos"></div>
+
+<!-- ====================== TELA 1 — INTRO ====================== -->
+<div id="intro" class="screen">
+  <div class="badge">•&nbsp; 5 meses de nós &nbsp;•</div>
+  <!-- Sprite da bonequinha desenhado por código e injetado aqui -->
+  <img id="introSprite" alt="Bonequinha">
+  <h1>Uma surpresa especial para o amor da minha vida...</h1>
+  <p class="sub">Corra comigo por esses 5 meses, colete nossos corações e descubra onde eu te espero. 💗</p>
+  <button class="btn" id="startBtn">Começar</button>
+  <div class="hint">Toque na tela para pular (dá pra pular 2 vezes!)</div>
+</div>
+
+<!-- ====================== TELA 3 — O CONVITE ====================== -->
+<div id="end" class="screen hidden">
+  <div class="letter">
+    <div class="seal">💌</div>
+    <h2>Feliz 5 meses de namoro, meu amor!</h2>
+    <p class="lead">Você está convidada para comemorarmos juntos.</p>
+    <div class="rows">
+      <div class="row">
+        <div class="ico">🥗</div>
+        <div class="txt"><b>Local</b>TASTY Salad Shop<br>
+          <a href="https://tastysaladshop.com.br" target="_blank" rel="noopener">tastysaladshop.com.br</a>
+        </div>
+      </div>
+      <div class="row">
+        <div class="ico">📍</div>
+        <div class="txt"><b>Endereço</b>
+          <a href="https://maps.google.com/?q=R.+Moysés+Marcondes,+405+-+Juvevê,+Curitiba+-+PR,+80030-410" target="_blank" rel="noopener">
+            R. Moysés Marcondes, 405 - Juvevê, Curitiba - PR, 80030-410</a>
+        </div>
+      </div>
+      <div class="row">
+        <div class="ico">🕕</div>
+        <div class="txt"><b>Data e Hora</b>Sexta-feira, dia 14/08, às 18:30</div>
+      </div>
+    </div>
+    <p class="footer"><strong>Tire um print desta tela para confirmar sua presença!</strong><br>Te amo!</p>
+    <button class="replay" id="replayBtn">↺ jogar de novo</button>
+  </div>
+</div>
+
+<button id="sound" title="Som">🔊</button>
+
+<script>
+"use strict";
+/* ================================================================
+   JOGO: "Nossos 5 meses" — endless runner romântico
+   Estados: START → PLAYING → ARRIVING → END
+   ================================================================ */
+
+/* ----------------------------------------------------------------
+   1) CONFIGURAÇÃO DAS FOTOS
+   ----------------------------------------------------------------
+   >>> AQUI VOCÊ COLOCA O CAMINHO DAS NOSSAS FOTOS <<<
+   Dica p/ hospedar no GitHub Pages / Vercel: renomeie a pasta
+   "mes5 de namoro" para "fotos" (sem espaços e sem acento) e troque
+   os caminhos abaixo por "fotos/nome-da-foto.jpg".
+   Se um arquivo não existir, o quadro mostra "[INSERIR FOTO AQUI]".
+---------------------------------------------------------------- */
+const PHOTOS = [
+  { src: "mes5%20de%20namoro/20260715_170057(1).jpg", cap: "nosso passeio 💛", side: "left"  },
+  { src: "mes5%20de%20namoro/20260718_134719.jpg",    cap: "seu sorriso 🥰",   side: "right" },
+  { src: "mes5%20de%20namoro/20260731_212526.jpg",    cap: "a gente 💗",       side: "left"  },
+  { src: "mes5%20de%20namoro/20260802_144142.jpg",    cap: "pra sempre ✨",    side: "right" }
+];
+
+/* ----------------------------------------------------------------
+   2) FRASES E VERSÍCULOS (aparecem ao coletar um coração)
+---------------------------------------------------------------- */
+const MESSAGES = [
+  "Te amo muito!",
+  "Feliz 5 meses!",
+  "Você é o presente de Deus para mim.",
+  "Eu encontrei aquele a quem a minha alma ama. (Cântico dos Cânticos 3:4)",
+  "O amor tudo sofre, tudo crê, tudo espera, tudo suporta. (1 Coríntios 13:7)"
+];
+const OOPS = ["Ops! Cuidado, meu amor 💕", "Tudo bem, a gente continua junto 💗", "Levanta que eu te espero ✨"];
+
+/* ================================================================
+   3) SPRITES — PIXEL ART DESENHADA POR CÓDIGO
+   ----------------------------------------------------------------
+   Cada sprite é uma matriz de caracteres; cada caractere é um pixel
+   colorido pela paleta correspondente ('.' = transparente).
+   Os sprites foram desenhados com base nas NOSSAS FOTOS:
+     • Ela: cabelo castanho-escuro na altura dos ombros com franja,
+       jaqueta de couro marrom, blusa branca, colar dourado, jeans
+       e tênis branco.
+     • Ele: cabelo escuro, barba cheia, óculos redondos, jaqueta
+       azul-marinho e camiseta marrom.
+
+   >>> QUER USAR IMAGENS DE VERDADE NO LUGAR DOS SPRITES? <<<
+   Troque o objeto SPR.girlRun[i] por um Image():
+       const img = new Image(); img.src = "sprites/bonequinha.png";
+       SPR.girlRun = [img, img, img, img];
+   (o desenho usa ctx.drawImage, então funciona igual)
+================================================================ */
+function makeSprite(rows, palette) {
+  const cv = document.createElement("canvas");
+  cv.width = rows[0].length; cv.height = rows.length;
+  const c = cv.getContext("2d");
+  for (let y = 0; y < rows.length; y++) {
+    const row = rows[y];
+    for (let x = 0; x < row.length; x++) {
+      const col = palette[row[x]];
+      if (!col) continue;
+      c.fillStyle = col;
+      c.fillRect(x, y, 1, 1);
+    }
+  }
+  return cv;
+}
+
+/* --- Paleta da bonequinha (baseada nas fotos) --- */
+const PAL_GIRL = {
+  H: "#2E1B14", h: "#4B2E20",              // cabelo castanho escuro
+  S: "#F7CFAE", s: "#E3AE87",              // pele
+  E: "#2B1A12", B: "#F59AA4", M: "#C4606C",// olhos, blush, boca
+  J: "#9A5230", j: "#71391F",              // jaqueta de couro marrom
+  W: "#FFFFFF", w: "#E2E2EA",              // blusa branca
+  D: "#3D5C8C", d: "#2B4368",              // jeans
+  K: "#FAFAFA", k: "#BFBFC9",              // tênis
+  G: "#F1C24A"                             // colar dourado
+};
+
+/* Cabeça + tronco (16x17) — comum a todos os frames */
+const GIRL_TOP = [
+  ".....HHHHHH.....",
+  "....HHHHHHHH....",
+  "...HHHHHHHHHH...",
+  "...HHHHHHHHHHH..",
+  "...HHSSSSSSHHH..",
+  "...HSSSSSSSSHH..",
+  "...HSEESSEESHH..",
+  "...HSBSSSSBSHH..",
+  "...HSSSMMSSSHH..",
+  "...HHSSSSSSHHH..",
+  "....HHSSSSHHH...",
+  "....HH.SS.HHH...",
+  ".HHJJJWWWWJJJHH.",
+  ".HHJJJWGGWJJJHH.",
+  ".HHJJJWWWWJJJHH.",
+  "..HJJJWWWWJJJH..",
+  "...JJWWWWWWJJ..."
+];
+/* Pernas (16x7) — 3 poses de corrida + 1 de pulo */
+const GIRL_LEGS = [
+  [ // A — perna esquerda à frente
+    "....DDDDDDDD....",
+    "....DDDDDDDD....",
+    "...DDD...DDD....",
+    "..DDD.....DDD...",
+    "..DD.......DD...",
+    ".KKK.......KKK..",
+    ".kkk.......kkk.."
+  ],
+  [ // B — passagem (pernas juntas)
+    "....DDDDDDDD....",
+    "....DDDDDDDD....",
+    "....DDDDDDDD....",
+    "....DDD.DDD.....",
+    "....DDD.DDD.....",
+    "...KKK..KKK.....",
+    "...kkk..kkk....."
+  ],
+  [ // C — perna direita à frente
+    "....DDDDDDDD....",
+    "....DDDDDDDD....",
+    "....DDD..DDD....",
+    "...DDD....DDD...",
+    "..DD........DD..",
+    ".KKK........KKK.",
+    ".kkk........kkk."
+  ],
+  [ // D — pulo
+    "....DDDDDDDD....",
+    "...DDDD.DDDD....",
+    "..DDD....DDDD...",
+    "..DD......DDD...",
+    ".KKK......DDD...",
+    ".kkk......KKK...",
+    "..........kkk..."
+  ]
+];
+
+/* --- Paleta do namorado (aparece no restaurante) --- */
+const PAL_BOY = {
+  H: "#241610", F: "#2A1A12",              // cabelo e barba
+  S: "#E9B98F", s: "#D19E74", E: "#1B1009",
+  G: "#C9A227",                            // óculos redondos dourados
+  J: "#28304A", j: "#1B2134",              // jaqueta azul-marinho
+  T: "#8A5A3B",                            // camiseta marrom
+  D: "#3A4A66", K: "#F2F2F2", k: "#BEBEC8", M: "#B0575E"
+};
+const BOY_ROWS = [
+  ".....HHHHHH.....",
+  "...HHHHHHHHHH...",
+  "..HHHHHHHHHHHH..",
+  "..HHHSSSSSSHHH..",
+  "..HHSSSSSSSSHH..",
+  "....GGG..GGG....",
+  "....GEGGGGEG....",
+  "....GGG..GGG....",
+  "...SSSSssSSSS...",
+  "..FFSSSSSSSSFF..",
+  "..FFFSSMMSSFFF..",
+  "...FFFFFFFFFF...",
+  "......SSSS......",
+  "..JJJJTTTTJJJJ..",
+  "..JJJTTTTTTJJJ..",
+  "..JJJTTTTTTJJJ..",
+  "...JJTTTTTTJJ...",
+  "....DDDDDDDD....",
+  "....DDDDDDDD....",
+  "....DDD..DDD....",
+  "....DDD..DDD....",
+  "....DDD..DDD....",
+  "...KKKK..KKKK...",
+  "...kkkk..kkkk..."
+];
+
+/* --- Coração coletável --- */
+const PAL_HEART = { R: "#FF4D6D", r: "#D62B4E", L: "#FFD3DD" };
+const HEART_ROWS = [
+  ".RR...RR.",
+  "RRLRRRRRR",
+  "RRLRRRRRR",
+  "RRRRRRRRR",
+  ".RRRRRRR.",
+  "..RRRRR..",
+  "...RRR...",
+  "....R...."
+];
+
+/* --- Obstáculos fofos --- */
+const PAL_BUSH = { G: "#5BB35B", g: "#3E8E41", f: "#FF8FB1", y: "#FFE066" };
+const BUSH_ROWS = [
+  "....GGGG......",
+  "..GGGGGGGGG...",
+  ".GGGfGGGGGGG..",
+  "GGGGGGGGfGGGG.",
+  "GGGGGGGGGGGGGG",
+  "ggGGGGyGGGGGgg",
+  "gggggggggggggg",
+  ".ggggggggggg.."
+];
+const PAL_GIFT = { C: "#FF6FA5", c: "#E04E86", B: "#FFE066" };
+const GIFT_ROWS = [
+  "...BB..BB...",
+  "..BBBBBBBB..",
+  ".CCCCBBCCCC.",
+  "CCCCCBBCCCCC",
+  "CCCCCBBCCCCC",
+  "BBBBBBBBBBBB",
+  "CCCCCBBCCCCC",
+  "CCCCCBBCCCCC",
+  "CCCCCBBCCCCC",
+  "ccccCBBCcccc",
+  "cccccBBccccc",
+  "cccccccccccc"
+];
+
+/* Sprites prontos (canvas offscreen) */
+const SPR = {
+  girlRun: [0, 1, 2, 1].map(i => makeSprite(GIRL_TOP.concat(GIRL_LEGS[i]), PAL_GIRL)),
+  girlJump: makeSprite(GIRL_TOP.concat(GIRL_LEGS[3]), PAL_GIRL),
+  boy:   makeSprite(BOY_ROWS, PAL_BOY),
+  heart: makeSprite(HEART_ROWS, PAL_HEART),
+  bush:  makeSprite(BUSH_ROWS, PAL_BUSH),
+  gift:  makeSprite(GIFT_ROWS, PAL_GIFT)
+};
+
+/* Mostra a bonequinha na tela de introdução */
+document.getElementById("introSprite").src = SPR.girlRun[1].toDataURL();
+
+/* ================================================================
+   4) CANVAS / RESPONSIVIDADE
+================================================================ */
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let W = 0, H = 0;          // tamanho em pixels CSS
+let U = 4;                 // "unidade" do pixel-art (escala dos sprites)
+let groundY = 0;           // linha do chão
+let playerH = 0, playerW = 0;
+let SPEED = 300;           // px/s
+let GRAVITY = 2500, JUMP_V = 900;
+let GOAL = 20000;          // distância até o restaurante
+
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width  = Math.floor(W * dpr);
+  canvas.height = Math.floor(H * dpr);
+  canvas.style.width = W + "px";
+  canvas.style.height = H + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.imageSmoothingEnabled = false;   // pixel art nítida
+
+  // Escala dos sprites proporcional à altura da tela
+  U = Math.max(2, Math.round((H * 0.15) / 24));
+  playerW = 16 * U;
+  playerH = 24 * U;
+  groundY = H - Math.max(64, H * 0.17);
+
+  // Física derivada da altura do pulo desejada (~1.55x a altura dela)
+  const jumpHeight = playerH * 1.55, tUp = 0.38;
+  GRAVITY = (2 * jumpHeight) / (tUp * tUp);
+  JUMP_V  = GRAVITY * tUp;
+
+  SPEED = Math.max(240, Math.min(430, W * 0.78));
+  GOAL  = SPEED * 68;     // ~68 segundos de corrida até o TASTY
+
+  player.x = Math.max(40, W * 0.16);
+  if (state === "START") player.y = groundY - playerH;
+}
+window.addEventListener("resize", resize);
+window.addEventListener("orientationchange", () => setTimeout(resize, 250));
+
+/* ================================================================
+   5) ESTADO DO JOGO
+================================================================ */
+let state = "START";            // START | PLAYING | ARRIVING | END
+let camX = 0;                   // câmera / distância percorrida
+let elapsed = 0;                // tempo total (para animações)
+let hearts = 0;
+let msgIndex = 0;
+let speedMul = 1;               // reduzido temporariamente ao tropeçar
+let stumbleT = 0, invuln = 0, shake = 0;
+
+const player = {
+  x: 60, y: 0, vy: 0,
+  onGround: true, jumps: 0,
+  frame: 0, frameT: 0, tilt: 0
+};
+
+let obstacles = [];
+let collectibles = [];
+let particles = [];
+let nextSpawnX = 0;
+let photoQueue = [];
+
+/* Elementos da interface */
+const introEl = document.getElementById("intro");
+const endEl   = document.getElementById("end");
+const hudEl   = document.getElementById("hud");
+const toastEl = document.getElementById("toast");
+const fillEl  = document.getElementById("progressFill");
+const countEl = document.getElementById("heartCount");
+const photosEl = document.getElementById("photos");
+
+/* ================================================================
+   6) FOTOS — cria os quadros sobrepostos ao Canvas
+================================================================ */
+function buildPhotoFrames() {
+  photosEl.innerHTML = "";
+  photoQueue = PHOTOS.map((p, i) => {
+    const frame = document.createElement("div");
+    frame.className = "photo-frame " + (p.side || (i % 2 ? "right" : "left"));
+    frame.innerHTML =
+      '<img class="ph-img" alt="foto do casal">' +
+      '<div class="ph-holder">[INSERIR FOTO AQUI]</div>' +
+      '<div class="cap">' + p.cap + "</div>";
+    const img = frame.querySelector(".ph-img");
+    const holder = frame.querySelector(".ph-holder");
+    img.onerror = () => { img.style.display = "none"; holder.style.display = "flex"; };
+    img.src = p.src;
+    photosEl.appendChild(frame);
+    // Aparece em 20%, 40%, 60% e 80% do caminho
+    return { el: frame, at: GOAL * (0.2 + 0.2 * i), shown: false };
+  });
+}
+
+function showPhoto(item) {
+  item.shown = true;
+  item.el.classList.remove("fly");
+  void item.el.offsetWidth;         // reinicia a animação
+  item.el.classList.add("fly");
+}
+
+/* ================================================================
+   7) TOAST — frases românticas
+================================================================ */
+let toastTimer = null;
+function showToast(text, oops) {
+  toastEl.textContent = text;
+  toastEl.classList.toggle("oops", !!oops);
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2600);
+}
+
+/* ================================================================
+   8) SOM (WebAudio — sem arquivos externos)
+================================================================ */
+let audioCtx = null, soundOn = true;
+const soundBtn = document.getElementById("sound");
+soundBtn.addEventListener("click", () => {
+  soundOn = !soundOn;
+  soundBtn.textContent = soundOn ? "🔊" : "🔇";
+});
+function beep(freq, dur, type, vol) {
+  if (!soundOn || !audioCtx) return;
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = type || "sine"; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(vol || 0.12, audioCtx.currentTime + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (dur || 0.15));
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + (dur || 0.15) + 0.02);
+}
+function melody(notes, gap) {
+  notes.forEach((n, i) => setTimeout(() => beep(n, 0.28, "triangle", 0.1), i * (gap || 160)));
+}
+
+/* ================================================================
+   9) CONTROLES (toque / mouse / teclado)
+================================================================ */
+function jump() {
+  if (state !== "PLAYING") return;
+  if (player.jumps < 2) {                       // pulo duplo
+    player.vy = -JUMP_V * (player.jumps === 0 ? 1 : 0.85);
+    player.jumps++;
+    player.onGround = false;
+    beep(player.jumps === 1 ? 620 : 780, 0.12, "square", 0.06);
+    for (let i = 0; i < 5; i++) spawnParticle(player.x + playerW / 2, player.y + playerH, "#ffd9e7");
+  }
+}
+canvas.addEventListener("pointerdown", e => { e.preventDefault(); jump(); });
+window.addEventListener("keydown", e => {
+  if (e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW") { e.preventDefault(); jump(); }
+});
+
+/* ================================================================
+   10) PARTÍCULAS
+================================================================ */
+function spawnParticle(x, y, color, up) {
+  particles.push({
+    x, y, color,
+    vx: (Math.random() - 0.5) * 120,
+    vy: up ? -(80 + Math.random() * 160) : -(20 + Math.random() * 80),
+    life: 0.6 + Math.random() * 0.5, t: 0, size: Math.max(2, U * 0.6)
+  });
+}
+
+/* ================================================================
+   11) GERADOR DE OBSTÁCULOS E CORAÇÕES
+   ----------------------------------------------------------------
+   O espaçamento é calculado a partir do alcance do pulo, então
+   sempre dá pra passar. Nada é punitivo: bater só atrasa um pouco.
+================================================================ */
+function spawnAhead() {
+  const jumpRange = SPEED * 0.76;               // distância percorrida no ar
+  while (nextSpawnX < camX + W + 300) {
+    if (nextSpawnX > GOAL - W * 1.2) { nextSpawnX += 400; continue; }  // limpa a área do restaurante
+
+    const roll = Math.random();
+    if (roll < 0.45) {
+      // --- obstáculo ---
+      const type = Math.random() < 0.5 ? "bush" : "gift";
+      const spr = SPR[type];
+      const scale = type === "bush" ? U * 1.0 : U * 0.95;
+      const oh = spr.height * scale, ow = spr.width * scale;
+      obstacles.push({ x: nextSpawnX, w: ow, h: oh, spr, hit: false });
+      nextSpawnX += jumpRange * (1.35 + Math.random() * 0.7);
+    } else {
+      // --- fileira de corações ---
+      const n = 3 + Math.floor(Math.random() * 3);
+      const high = Math.random() < 0.5;
+      const step = 46 + U * 6;
+      for (let i = 0; i < n; i++) {
+        const arc = high ? Math.sin((i / (n - 1)) * Math.PI) : 0;
+        collectibles.push({
+          x: nextSpawnX + i * step,
+          y: groundY - playerH * (high ? 0.9 + arc * 1.1 : 0.75),
+          got: false, ph: Math.random() * 6.28
+        });
+      }
+      nextSpawnX += n * step + jumpRange * 0.7;
+    }
+  }
+}
+
+/* ================================================================
+   12) INÍCIO / REINÍCIO
+================================================================ */
+function startGame() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  }
+  if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+
+  resize();
+  state = "PLAYING";
+  camX = 0; hearts = 0; msgIndex = 0; speedMul = 1;
+  stumbleT = 0; invuln = 0; shake = 0; arriveHold = 0;
+  obstacles = []; collectibles = []; particles = [];
+  nextSpawnX = W * 1.2;
+  player.y = groundY - playerH; player.vy = 0; player.jumps = 0; player.tilt = 0;
+
+  buildPhotoFrames();
+  countEl.textContent = "0";
+  fillEl.style.width = "0%";
+
+  introEl.classList.add("hidden");
+  endEl.classList.add("hidden");
+  hudEl.classList.remove("hidden");
+  melody([523, 659, 784], 140);
+  showToast("Vamos nessa, meu amor! 💗");
+}
+document.getElementById("startBtn").addEventListener("click", startGame);
+document.getElementById("replayBtn").addEventListener("click", startGame);
+
+/* ================================================================
+   13) UPDATE — a lógica do jogo (roda ~60x por segundo)
+================================================================ */
+/* Medidas da fachada do TASTY (desenho base de 300x210 "unidades") */
+function restMetrics() {
+  const bw = Math.min(W * 0.80, 430);
+  const bh = Math.min(bw * 0.72, groundY * 0.72);
+  return { bw, bh, k: bw / 300 };
+}
+/* Posição EXATA da câmera onde a bonequinha para em frente à porta.
+   A porta fica logo à direita dela, garantindo que a fachada inteira
+   caiba na tela. */
+function stopCam() {
+  const { bw } = restMetrics();
+  const doorX = Math.min(
+    Math.max(player.x + playerW * 1.45, bw / 2 + 10),
+    Math.max(bw / 2 + 10, W - bw / 2 - 10)
+  );
+  return GOAL + bw / 2 - doorX;
+}
+
+let arriveHold = 0;
+function update(dt) {
+  elapsed += dt;
+
+  // partículas sempre atualizam (inclusive nas telas de início/fim)
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 700 * dt;
+    if (p.t > p.life) particles.splice(i, 1);
+  }
+  if (shake > 0) shake = Math.max(0, shake - dt * 2.5);
+
+  if (state !== "PLAYING" && state !== "ARRIVING") return;
+
+  /* --- velocidade (reduzida por 0.8s após tropeçar) --- */
+  if (stumbleT > 0) { stumbleT -= dt; speedMul = 0.45 + 0.55 * (1 - stumbleT / 0.8); }
+  else speedMul = 1;
+  if (invuln > 0) invuln -= dt;
+
+  let curSpeed = SPEED * speedMul;
+
+  /* --- chegada: desacelera suavemente até parar em frente ao TASTY --- */
+  const target = stopCam();
+  if (state === "ARRIVING") {
+    const remain = target - camX;
+    curSpeed = Math.max(0, Math.min(SPEED, remain * 2.4));
+    if (remain <= 2) {
+      camX = target; curSpeed = 0;
+      arriveHold += dt;
+      if (arriveHold > 1.5) finish();
+    }
+  } else if (camX >= target - SPEED * 0.8) {
+    state = "ARRIVING";
+    arriveHold = 0;
+    showToast("Chegamos! 💗");
+  }
+
+  camX += curSpeed * dt;
+
+  /* --- física do pulo --- */
+  player.vy += GRAVITY * dt;
+  player.y += player.vy * dt;
+  if (player.y + playerH >= groundY) {
+    if (!player.onGround && player.vy > 0) {
+      for (let i = 0; i < 4; i++) spawnParticle(player.x + playerW / 2, groundY, "#e9d7c3");
+    }
+    player.y = groundY - playerH;
+    player.vy = 0; player.onGround = true; player.jumps = 0;
+  } else {
+    player.onGround = false;
+  }
+
+  /* --- animação de corrida --- */
+  if (player.onGround && curSpeed > 20) {
+    player.frameT += dt * (curSpeed / SPEED) * 12;
+    if (player.frameT >= 1) { player.frameT = 0; player.frame = (player.frame + 1) % 4; }
+  }
+  player.tilt += ((stumbleT > 0 ? -0.25 : 0) - player.tilt) * Math.min(1, dt * 8);
+
+  /* --- gera o cenário à frente --- */
+  spawnAhead();
+
+  /* --- caixa de colisão da bonequinha (menor que o sprite) --- */
+  const pb = {
+    x: player.x + playerW * 0.22, y: player.y + playerH * 0.12,
+    w: playerW * 0.56, h: playerH * 0.86
+  };
+
+  /* --- OBSTÁCULOS: colisão NÃO punitiva (só tropeça) --- */
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    const o = obstacles[i];
+    const sx = o.x - camX;
+    if (sx + o.w < -100) { obstacles.splice(i, 1); continue; }
+    if (o.hit || invuln > 0) continue;
+
+    const ob = { x: sx + o.w * 0.15, y: groundY - o.h, w: o.w * 0.7, h: o.h };
+    if (pb.x < ob.x + ob.w && pb.x + pb.w > ob.x && pb.y < ob.y + ob.h && pb.y + pb.h > ob.y) {
+      o.hit = true;
+      stumbleT = 0.8; invuln = 1.2; shake = 1;
+      showToast(OOPS[Math.floor(Math.random() * OOPS.length)], true);
+      beep(180, 0.18, "sawtooth", 0.05);
+      for (let k = 0; k < 10; k++) spawnParticle(player.x + playerW / 2, player.y + playerH * 0.6, "#ffb3c9", true);
+    }
+  }
+
+  /* --- CORAÇÕES: coletar mostra uma frase --- */
+  for (let i = collectibles.length - 1; i >= 0; i--) {
+    const c = collectibles[i];
+    const sx = c.x - camX;
+    if (sx < -80) { collectibles.splice(i, 1); continue; }
+    const size = 9 * U * 0.85;
+    const cy = c.y + Math.sin(elapsed * 3 + c.ph) * 8;
+    const cb = { x: sx, y: cy, w: size, h: size };
+    if (pb.x < cb.x + cb.w && pb.x + pb.w > cb.x && pb.y < cb.y + cb.h && pb.y + pb.h > cb.y) {
+      collectibles.splice(i, 1);
+      hearts++;
+      countEl.textContent = hearts;
+      showToast(MESSAGES[msgIndex % MESSAGES.length]);
+      msgIndex++;
+      beep(880 + (hearts % 5) * 60, 0.16, "sine", 0.09);
+      for (let k = 0; k < 8; k++) spawnParticle(sx + size / 2, cy + size / 2, "#ff6f96", true);
+    }
+  }
+
+  /* --- FOTOS DO CASAL --- */
+  for (const item of photoQueue) {
+    if (!item.shown && camX >= item.at) showPhoto(item);
+  }
+
+  /* --- barra de progresso --- */
+  const prog = Math.min(1, (camX + player.x) / GOAL);
+  fillEl.style.width = (prog * 100).toFixed(1) + "%";
+}
+
+function finish() {
+  state = "END";
+  hudEl.classList.add("hidden");
+  endEl.classList.remove("hidden");
+  // reinicia a animação de abertura da carta (caso jogue de novo)
+  const letterEl = endEl.querySelector(".letter");
+  letterEl.style.animation = "none";
+  void letterEl.offsetWidth;
+  letterEl.style.animation = "";
+  melody([523, 659, 784, 1046], 190);
+  // chuva de corações
+  let n = 0;
+  const rain = setInterval(() => {
+    for (let i = 0; i < 3; i++) spawnParticle(Math.random() * W, -20, ["#ff6f96", "#ffd166", "#fff"][i % 3], false);
+    if (++n > 40) clearInterval(rain);
+  }, 90);
+}
+
+/* ================================================================
+   14) DESENHO DO CENÁRIO
+================================================================ */
+function lerp(a, b, t) { return a + (b - a) * t; }
+function mixHex(c1, c2, t) {
+  const p = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const a = p(c1), b = p(c2);
+  return "rgb(" + Math.round(lerp(a[0], b[0], t)) + "," + Math.round(lerp(a[1], b[1], t)) + "," + Math.round(lerp(a[2], b[2], t)) + ")";
+}
+
+function drawSky(prog) {
+  // O céu vai virando fim de tarde conforme a gente se aproxima do jantar (18:30)
+  const g = ctx.createLinearGradient(0, 0, 0, groundY + 40);
+  g.addColorStop(0, mixHex("#8FD3F4", "#4B3F82", prog));
+  g.addColorStop(0.55, mixHex("#BFE7F7", "#E97A78", prog));
+  g.addColorStop(1, mixHex("#FDE9EF", "#FFC48C", prog));
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, groundY + 40);
+
+  // sol descendo
+  const sunY = lerp(H * 0.16, groundY - 12, prog);
+  const sunX = W * 0.76;
+  ctx.fillStyle = mixHex("#FFF3B0", "#FF8C5A", prog);
+  ctx.beginPath(); ctx.arc(sunX, sunY, Math.max(22, W * 0.075), 0, 6.2832); ctx.fill();
+  ctx.globalAlpha = 0.18;
+  ctx.beginPath(); ctx.arc(sunX, sunY, Math.max(40, W * 0.14), 0, 6.2832); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+function drawCloud(x, y, s) {
+  ctx.beginPath();
+  ctx.arc(x, y, 16 * s, 0, 6.2832);
+  ctx.arc(x + 18 * s, y - 8 * s, 20 * s, 0, 6.2832);
+  ctx.arc(x + 40 * s, y, 15 * s, 0, 6.2832);
+  ctx.rect(x, y, 40 * s, 16 * s);
+  ctx.fill();
+}
+function drawClouds(prog) {
+  ctx.fillStyle = "rgba(255,255,255," + (0.85 - prog * 0.35) + ")";
+  const off = (camX * 0.12) % 420;
+  for (let i = -1; i < Math.ceil(W / 420) + 2; i++) {
+    const bx = i * 420 - off;
+    drawCloud(bx + 40, H * 0.14, 1.1);
+    drawCloud(bx + 250, H * 0.24, 0.75);
+  }
+}
+
+/* Silhueta de Curitiba ao fundo */
+function drawCity(prog) {
+  const off = (camX * 0.3) % 260;
+  ctx.fillStyle = mixHex("#A9C6D8", "#4A3C63", prog);
+  const heights = [80, 130, 60, 155, 95, 120, 70, 140];
+  const widths  = [46, 34, 56, 30, 44, 38, 52, 32];
+  for (let i = -1; i < Math.ceil(W / 260) + 2; i++) {
+    let x = i * 260 - off;
+    for (let b = 0; b < heights.length; b++) {
+      const bh = heights[b] * (H / 780), bw = widths[b] * (W / 420);
+      ctx.fillRect(x, groundY - 46 - bh, bw, bh + 46);
+      x += bw + 6;
+    }
+  }
+}
+
+/* Colinas verdes */
+function drawHills(prog) {
+  const off = (camX * 0.45) % 340;
+  ctx.fillStyle = mixHex("#8CC98A", "#5B6E62", prog * 0.8);
+  ctx.beginPath();
+  ctx.moveTo(-10, groundY + 10);
+  for (let i = -1; i < Math.ceil(W / 340) + 2; i++) {
+    const bx = i * 340 - off;
+    ctx.quadraticCurveTo(bx + 85, groundY - 96, bx + 170, groundY - 10);
+    ctx.quadraticCurveTo(bx + 255, groundY - 70, bx + 340, groundY - 10);
+  }
+  ctx.lineTo(W + 20, groundY + 10);
+  ctx.closePath(); ctx.fill();
+}
+
+/* Araucárias (a árvore símbolo de Curitiba) + arbustos decorativos */
+function drawTrees(prog) {
+  const off = (camX * 0.65) % 300;
+  const shade = mixHex("#2F7D4F", "#274B3F", prog * 0.7);
+  for (let i = -1; i < Math.ceil(W / 300) + 2; i++) {
+    const bx = i * 300 - off + 60;
+    const s = H / 780;
+    // tronco
+    ctx.fillStyle = mixHex("#7A5230", "#4A3524", prog * 0.7);
+    ctx.fillRect(bx - 5 * s, groundY - 120 * s, 10 * s, 120 * s);
+    // copa em camadas
+    ctx.fillStyle = shade;
+    for (let l = 0; l < 3; l++) {
+      const ly = groundY - (118 - l * 26) * s;
+      const lw = (34 + l * 12) * s;
+      ctx.beginPath();
+      ctx.moveTo(bx - lw, ly); ctx.lineTo(bx + lw, ly);
+      ctx.lineTo(bx + lw * 0.5, ly - 16 * s); ctx.lineTo(bx - lw * 0.5, ly - 16 * s);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+}
+
+/* Chão com grama e caminho */
+function drawGround(prog) {
+  const dirt = mixHex("#C98F62", "#7A5540", prog * 0.7);
+  const grass = mixHex("#6FC46F", "#3F7A57", prog * 0.7);
+  const grassDark = mixHex("#57A85B", "#33604A", prog * 0.7);
+  ctx.fillStyle = dirt;
+  ctx.fillRect(0, groundY, W, H - groundY);
+  ctx.fillStyle = grass;
+  ctx.fillRect(0, groundY, W, Math.max(10, U * 3));
+  ctx.fillStyle = grassDark;
+  // tufinhos de grama que rolam com a câmera
+  const step = 26;
+  const off = camX % step;
+  for (let x = -off; x < W + step; x += step) {
+    const k = Math.floor((x + camX) / step);
+    const hgt = 4 + ((k * 37) % 5);
+    ctx.fillRect(x, groundY - hgt, 3, hgt);
+  }
+  // pedrinhas / corações no caminho
+  ctx.fillStyle = "rgba(255,255,255,.25)";
+  const off2 = (camX * 1) % 120;
+  for (let x = -off2; x < W + 120; x += 120) ctx.fillRect(x, groundY + (H - groundY) * 0.45, 26, 4);
+}
+
+/* ============================================================
+   FACHADA DO RESTAURANTE "TASTY" (fim do caminho)
+============================================================ */
+function drawRestaurant(prog) {
+  const bx = GOAL - camX;                 // borda esquerda da fachada na tela
+  const { bw, bh, k } = restMetrics();    // k = escala (desenho base 300x210)
+  if (bx > W + 40 || bx + bw < -40) return;
+  const by = groundY - bh;
+
+  // corpo do prédio
+  ctx.fillStyle = "#FFF7EE"; ctx.fillRect(bx, by, bw, bh);
+  ctx.fillStyle = "#EADFD2"; ctx.fillRect(bx, groundY - 8 * k, bw, 8 * k);
+
+  // placa TASTY
+  ctx.fillStyle = "#2E7D32";
+  ctx.fillRect(bx + 36 * k, by + 6 * k, 228 * k, 40 * k);
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold " + Math.round(30 * k) + "px 'Trebuchet MS', sans-serif";
+  ctx.fillText("TASTY", bx + bw / 2, by + 27 * k);
+
+  // toldo listrado verde/branco
+  const awY = by + 54 * k, awH = 30 * k;
+  const stripes = 10, stW = bw / stripes;
+  for (let i = 0; i < stripes; i++) {
+    ctx.fillStyle = i % 2 ? "#FFFFFF" : "#4CAF50";
+    ctx.fillRect(bx + i * stW, awY, stW + 0.5, awH);
+  }
+  ctx.fillStyle = "rgba(0,0,0,.12)"; ctx.fillRect(bx, awY + awH, bw, 3 * k);
+  ctx.fillStyle = "#4a2b39";
+  ctx.font = Math.round(12 * k) + "px 'Trebuchet MS', sans-serif";
+  ctx.fillText("SALAD SHOP", bx + bw / 2, awY + awH + 14 * k);
+
+  // vitrines
+  const winY = by + 112 * k, winH = Math.max(20, groundY - winY - 6 * k);
+  ctx.fillStyle = mixHex("#BFE3F5", "#FFD79A", prog);
+  ctx.fillRect(bx + 18 * k, winY, 78 * k, winH);
+  ctx.fillRect(bx + 204 * k, winY, 78 * k, winH);
+  ctx.strokeStyle = "#D9C7B4"; ctx.lineWidth = Math.max(1, 2 * k);
+  ctx.strokeRect(bx + 18 * k, winY, 78 * k, winH);
+  ctx.strokeRect(bx + 204 * k, winY, 78 * k, winH);
+
+  // porta
+  const dw = 78 * k, dh = Math.min(96 * k, bh * 0.5);
+  const dx = bx + bw / 2 - dw / 2, dy = groundY - dh;
+  ctx.fillStyle = "#8D6E63"; ctx.fillRect(dx, dy, dw, dh);
+  ctx.fillStyle = mixHex("#CFE9F7", "#FFE0B2", prog);
+  ctx.fillRect(dx + dw * 0.12, dy + dh * 0.1, dw * 0.76, dh * 0.55);
+  ctx.fillStyle = "#F1C24A"; ctx.fillRect(dx + dw * 0.8, dy + dh * 0.72, 4 * k, 9 * k);
+
+  // vasinhos de plantas nas laterais
+  for (const px of [bx + 2 * k, bx + 274 * k]) {
+    ctx.fillStyle = "#C46A4A"; ctx.fillRect(px, groundY - 20 * k, 24 * k, 20 * k);
+    ctx.fillStyle = "#4CAF50";
+    ctx.beginPath(); ctx.arc(px + 12 * k, groundY - 26 * k, 16 * k, 0, 6.2832); ctx.fill();
+  }
+
+  // luzinhas piscando no toldo
+  for (let i = 0; i < 12; i++) {
+    const lx = bx + (i + 0.5) * (bw / 12);
+    ctx.fillStyle = (Math.sin(elapsed * 3 + i) > 0) ? "#FFE066" : "#FFB4C6";
+    ctx.beginPath(); ctx.arc(lx, awY - 4 * k, Math.max(2, 3 * k), 0, 6.2832); ctx.fill();
+  }
+
+  // >>> O NAMORADO esperando na porta (sprite baseado nas fotos) <<<
+  if (state === "ARRIVING" || state === "END") {
+    const bs = U * 0.92;
+    const bxp = dx + dw / 2 - (16 * bs) / 2;
+    const byp = groundY - 24 * bs + Math.sin(elapsed * 2) * 2;
+    ctx.drawImage(SPR.boy, Math.round(bxp), Math.round(byp), 16 * bs, 24 * bs);
+    // coraçãozinho flutuando acima dele
+    const hs = bs * 0.7;
+    ctx.globalAlpha = 0.85 + Math.sin(elapsed * 4) * 0.15;
+    ctx.drawImage(SPR.heart, Math.round(bxp + 13 * bs), Math.round(byp + 4 * bs + Math.sin(elapsed * 3) * 3), 9 * hs, 8 * hs);
+    ctx.globalAlpha = 1;
+  }
+  ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
+}
+
+/* ================================================================
+   15) DESENHO GERAL (chamado a cada quadro)
+================================================================ */
+function draw() {
+  const prog = Math.min(1, (camX + player.x) / GOAL);
+
+  ctx.save();
+  if (shake > 0) ctx.translate((Math.random() - 0.5) * 8 * shake, (Math.random() - 0.5) * 6 * shake);
+
+  drawSky(prog);
+  drawClouds(prog);
+  drawCity(prog);
+  drawHills(prog);
+  drawTrees(prog);
+  drawGround(prog);
+  drawRestaurant(prog);
+
+  /* --- obstáculos --- */
+  for (const o of obstacles) {
+    const sx = o.x - camX;
+    if (sx > W + 60 || sx + o.w < -60) continue;
+    ctx.globalAlpha = 0.18; ctx.fillStyle = "#000";
+    ctx.beginPath(); ctx.ellipse(sx + o.w / 2, groundY + 4, o.w * 0.42, 5, 0, 0, 6.2832); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.drawImage(o.spr, Math.round(sx), Math.round(groundY - o.h), o.w, o.h);
+  }
+
+  /* --- corações --- */
+  const hsz = 9 * U * 0.85;
+  for (const c of collectibles) {
+    const sx = c.x - camX;
+    if (sx > W + 40 || sx < -40) continue;
+    const cy = c.y + Math.sin(elapsed * 3 + c.ph) * 8;
+    ctx.drawImage(SPR.heart, Math.round(sx), Math.round(cy), hsz, hsz * (8 / 9));
+  }
+
+  /* --- a bonequinha --- */
+  const spr = player.onGround ? SPR.girlRun[player.frame] : SPR.girlJump;
+  ctx.globalAlpha = (invuln > 0 && Math.floor(elapsed * 14) % 2 === 0) ? 0.45 : 1;
+  // sombra
+  ctx.save();
+  ctx.globalAlpha *= 0.2; ctx.fillStyle = "#000";
+  ctx.beginPath();
+  ctx.ellipse(player.x + playerW / 2, groundY + 4, playerW * 0.3, 5, 0, 0, 6.2832);
+  ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.translate(player.x + playerW / 2, player.y + playerH);
+  ctx.rotate(player.tilt);
+  ctx.drawImage(spr, Math.round(-playerW / 2), -playerH, playerW, playerH);
+  ctx.restore();
+  ctx.globalAlpha = 1;
+
+  /* --- partículas --- */
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, 1 - p.t / p.life);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size);
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+}
+
+/* ================================================================
+   16) GAME LOOP — requestAnimationFrame (~60 quadros por segundo)
+================================================================ */
+let lastT = 0;
+function loop(t) {
+  if (!lastT) lastT = t;
+  const dt = Math.min(0.05, (t - lastT) / 1000);   // trava o delta (evita "teleporte")
+  lastT = t;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+/* --- inicialização --- */
+resize();
+buildPhotoFrames();
+player.y = groundY - playerH;
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
